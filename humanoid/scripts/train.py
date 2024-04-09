@@ -29,6 +29,10 @@
 #
 # Copyright (c) 2024 Beijing RobotEra TECHNOLOGY CO.,LTD. All rights reserved.
 
+import os
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))
+# print('sys.path', sys.path)
 
 from humanoid.envs import *
 from humanoid.utils import get_args, task_registry
