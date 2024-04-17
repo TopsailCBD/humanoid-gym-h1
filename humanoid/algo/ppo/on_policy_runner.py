@@ -94,10 +94,11 @@ class OnPolicyRunner:
         # initialize writer
         if self.log_dir is not None and self.writer is None:
             wandb.init(
-                project="XBot",
+                project="humanoid-gym-h1",
                 sync_tensorboard=True,
                 name=self.wandb_run_name,
                 config=self.all_cfg,
+                entity='topsail'
             )
             self.writer = SummaryWriter(log_dir=self.log_dir, flush_secs=10)
         if init_at_random_ep_len:

@@ -77,6 +77,7 @@ class H1Env(LeggedRobot):
     '''
     def __init__(self, cfg: LeggedRobotCfg, sim_params, physics_engine, sim_device, headless):
         super().__init__(cfg, sim_params, physics_engine, sim_device, headless)
+    
         self.last_feet_z = 0.05
         self.feet_height = torch.zeros((self.num_envs, 2), device=self.device)
         self.reset_idx(torch.tensor(range(self.num_envs), device=self.device))
@@ -128,17 +129,27 @@ class H1Env(LeggedRobot):
         self.ref_dof_pos = torch.zeros_like(self.dof_pos)
         scale_1 = self.cfg.rewards.target_joint_pos_scale
         scale_2 = 2 * scale_1
+        scale_3 = scale_1 # TODO: modify to something for elbow
+        scale_4 = 2* scale_3
         # left foot stance phase set to default joint pos
         sin_pos_l[sin_pos_l > 0] = 0
-        self.ref_dof_pos[:, 2] = sin_pos_l * scale_1
-        self.ref_dof_pos[:, 3] = sin_pos_l * scale_2
-        self.ref_dof_pos[:, 4] = sin_pos_l * scale_1
+        self.ref_dof_pos[:, 2] = sin_pos_l * scale_1 # left_hip_pitch_joint
+        self.ref_dof_pos[:, 3] = sin_pos_l * scale_2 # left_knee_joint
+        self.ref_dof_pos[:, 4] = sin_pos_l * scale_1 # left_ankle_joint
+        
+        self.ref_dof_pos[:, 15] = sin_pos_l * scale_3 # right_shoulder_pitch_joint
+        self.ref_dof_pos[:, 18] = sin_pos_l * scale_4 # right_elbow_joint
+        
         # right foot stance phase set to default joint pos
         # === modified indexes for h1 ===
         sin_pos_r[sin_pos_r < 0] = 0
-        self.ref_dof_pos[:, 7] = sin_pos_r * scale_1
-        self.ref_dof_pos[:, 8] = sin_pos_r * scale_2
-        self.ref_dof_pos[:, 9] = sin_pos_r * scale_1
+        self.ref_dof_pos[:, 7] = sin_pos_r * scale_1 # right_hip_pitch_joint
+        self.ref_dof_pos[:, 8] = sin_pos_r * scale_2 # right_knee_joint
+        self.ref_dof_pos[:, 9] = sin_pos_r * scale_1 # right_ankle_joint
+        
+        self.ref_dof_pos[:, 11] = sin_pos_r * scale_3 # left_shoulder_pitch_joint
+        self.ref_dof_pos[:, 14] = sin_pos_r * scale_4 # left_elbow_joint
+        
         # Double support phase
         self.ref_dof_pos[torch.abs(sin_pos) < 0.1] = 0
 
@@ -199,8 +210,9 @@ class H1Env(LeggedRobot):
         if self.cfg.env.use_ref_actions:
             actions += self.ref_action
         # dynamic randomization
+        # delay = torch.rand((self.num_envs, 1), device=self.device)
         delay = torch.rand((self.num_envs, 1), device=self.device)
-        actions = (1 - delay) * actions + delay * self.actions
+        actions = (1 - delay) * actions.to(self.device) + delay * self.actions
         actions += self.cfg.domain_rand.dynamic_randomization * torch.randn_like(actions) * actions
         return super().step(actions)
 
@@ -227,10 +239,10 @@ class H1Env(LeggedRobot):
         self.privileged_obs_buf = torch.cat((
             self.command_input,  # 2 + 3
             (self.dof_pos - self.default_joint_pd_target) * \
-            self.obs_scales.dof_pos,  # 12
-            self.dof_vel * self.obs_scales.dof_vel,  # 12
-            self.actions,  # 12
-            diff,  # 12
+            self.obs_scales.dof_pos,  # |A|
+            self.dof_vel * self.obs_scales.dof_vel,  # |A|
+            self.actions,  # |A|
+            diff,  # |A|
             self.base_lin_vel * self.obs_scales.lin_vel,  # 3
             self.base_ang_vel * self.obs_scales.ang_vel,  # 3
             self.base_euler_xyz * self.obs_scales.quat,  # 3
@@ -304,14 +316,43 @@ class H1Env(LeggedRobot):
         """
         Calculates the reward based on the distance between the knee of the humanoid.
         """
-        foot_pos = self.rigid_state[:, self.knee_indices, :2]
-        foot_dist = torch.norm(foot_pos[:, 0, :] - foot_pos[:, 1, :], dim=1)
+        knee_pos = self.rigid_state[:, self.knee_indices, :2]
+        knee_dist = torch.norm(knee_pos[:, 0, :] - knee_pos[:, 1, :], dim=1)
         fd = self.cfg.rewards.min_dist
         max_df = self.cfg.rewards.max_dist / 2
-        d_min = torch.clamp(foot_dist - fd, -0.5, 0.)
-        d_max = torch.clamp(foot_dist - max_df, 0, 0.5)
+        d_min = torch.clamp(knee_dist - fd, -0.5, 0.)
+        d_max = torch.clamp(knee_dist - max_df, 0, 0.5)
         return (torch.exp(-torch.abs(d_min) * 100) + torch.exp(-torch.abs(d_max) * 100)) / 2
-
+    
+    # @jhcao
+    def _reward_elbow_distance(self):
+        """
+        Calculates the reward based on the distance between the elbow of the humanoid.
+        """
+        elbow_pos = self.rigid_state[:, self.elbow_indices, :2]
+        elbow_dist = torch.norm(elbow_pos[:, 0, :] - elbow_pos[:, 1, :], dim=1)
+        fd = self.cfg.rewards.min_dist
+        max_df = self.cfg.rewards.max_dist / 2
+        d_min = torch.clamp(elbow_dist - fd, -0.5, 0.)
+        d_max = torch.clamp(elbow_dist - max_df, 0, 0.5)
+        return (torch.exp(-torch.abs(d_min) * 100) + torch.exp(-torch.abs(d_max) * 100)) / 2
+    
+    # # @jhcao
+    # def _reward_elbow_torso_distance(self):
+    #     """
+    #     Calculates the reward based on the distance of both elbow to the torso.
+    #     """
+    #     elbow_pos = self.rigid_state[:, self.elbow_indices, :2]
+    #     torso_pos = self.rigid_state[:, self.torso_indices, :2]
+    #     elbow_torso_dist_l = torch.norm(elbow_pos[:,0,:] - torso_pos[:,0,:], dim=1)
+    #     elbow_torso_dist_r = torch.norm(elbow_pos[:,1,:] - torso_pos[:,0,:], dim=1)
+    #     fd = 0.00
+    #     max_fd = 0.10
+    #     d_min_l = torch.clamp(elbow_torso_dist_l - fd, -0.5, 0.)
+    #     d_max_l = torch.clamp(elbow_torso_dist_l - max_fd, 0, 0.5)
+    #     d_min_r = torch.clamp(elbow_torso_dist_r - fd, -0.5, 0.)
+    #     d_max_r = torch.clamp(elbow_torso_dist_r - max_fd, 0, 0.5)
+    #     return (torch.exp(-torch.abs(d_min_l) * 100) + torch.exp(-torch.abs(d_max_l) * 100)) / 2 + (torch.exp(-torch.abs(d_min_r) * 100) + torch.exp(-torch.abs(d_max_r) * 100)) / 2
 
     def _reward_foot_slip(self):
         """
@@ -374,10 +415,18 @@ class H1Env(LeggedRobot):
         """
         joint_diff = self.dof_pos - self.default_joint_pd_target
         left_yaw_roll = joint_diff[:, :2]
-        right_yaw_roll = joint_diff[:, 6: 8]
+        right_yaw_roll = joint_diff[:, 5:7]
         yaw_roll = torch.norm(left_yaw_roll, dim=1) + torch.norm(right_yaw_roll, dim=1)
         yaw_roll = torch.clamp(yaw_roll - 0.1, 0, 50)
-        return torch.exp(-yaw_roll * 100) - 0.01 * torch.norm(joint_diff, dim=1)
+        
+        left_yaw_roll_shoulder = joint_diff[:, 12:14]
+        right_yaw_roll_shoulder = joint_diff[:, 16:18]
+        # yaw_roll_shoulder = torch.norm(left_yaw_roll_shoulder, dim=1) + torch.norm(right_yaw_roll_shoulder, dim=1)
+        yaw_roll_shoulder = torch.norm(left_yaw_roll_shoulder, p=1, dim=1) + torch.norm(right_yaw_roll_shoulder, p=1, dim=1)
+        yaw_roll = torch.clamp(yaw_roll_shoulder - 0.1, 0, 50)
+        
+        return torch.exp(-yaw_roll * 100) + torch.exp(-yaw_roll_shoulder * 100) - 0.01 * torch.norm(joint_diff, dim=1)
+    
 
     def _reward_base_height(self):
         """

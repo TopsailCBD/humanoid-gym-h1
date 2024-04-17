@@ -62,6 +62,8 @@ class H1Cfg(LeggedRobotCfg):
         name = "h1"
         foot_name = "ankle"
         knee_name = "knee"
+        elbow_name = "elbow"
+        torso_name = "torso"
 
         terminate_after_contacts_on = ['pelvis', 'torso', 'shoulder', 'elbow']
         penalize_contacts_on = ["hip", 'knee']
@@ -71,18 +73,19 @@ class H1Cfg(LeggedRobotCfg):
         fix_base_link = False
 
     class terrain(LeggedRobotCfg.terrain):
-        mesh_type = 'plane'
-        # mesh_type = 'trimesh'
-        curriculum = False
+        # mesh_type = 'plane'
+        # curriculum = False
+        mesh_type = 'trimesh'
+        curriculum = True
         # rough terrain only:
         measure_heights = False
         static_friction = 0.6
         dynamic_friction = 0.6
-        terrain_length = 8.
-        terrain_width = 8.
-        num_rows = 20  # number of terrain rows (levels)
+        terrain_length = 4. # 8.
+        terrain_width = 4. # 8.
+        num_rows = 10 # 20  # number of terrain rows (levels)
         num_cols = 20  # number of terrain cols (types)
-        max_init_terrain_level = 10  # starting curriculum state
+        max_init_terrain_level = 0 # 10  # starting curriculum state
         # plane; obstacles; uniform; slope_up; slope_down, stair_up, stair_down
         terrain_proportions = [0.2, 0.2, 0.4, 0.1, 0.1, 0, 0]
         restitution = 0.
@@ -238,6 +241,8 @@ class H1Cfg(LeggedRobotCfg):
             foot_slip = -0.05
             feet_distance = 0.2
             knee_distance = 0.2
+            elbow_distance = 0.4
+            # elbow_torso_distance = 0.4
             # contact
             feet_contact_forces = -0.01
             # vel tracking
@@ -247,7 +252,7 @@ class H1Cfg(LeggedRobotCfg):
             low_speed = 0.2
             track_vel_hard = 0.5
             # base pos
-            default_joint_pos = 0.5
+            default_joint_pos = 0.25 # 0.5
             orientation = 1.
             base_height = 0.2
             base_acc = 0.2
@@ -291,7 +296,7 @@ class H1CfgPPO(LeggedRobotCfgPPO):
         policy_class_name = 'ActorCritic'
         algorithm_class_name = 'PPO'
         num_steps_per_env = 60  # per iteration
-        max_iterations = 3001  # number of policy updates
+        max_iterations = 6001 # 3001  # number of policy updates
 
         # logging
         save_interval = 100  # check for potential saves every this many iterations

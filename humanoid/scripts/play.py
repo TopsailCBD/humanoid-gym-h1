@@ -53,14 +53,13 @@ def play(args):
     # override some parameters for testing
     env_cfg.env.num_envs = 64 # min(env_cfg.env.num_envs, 1)
     env_cfg.sim.max_gpu_contact_pairs = 2**10
-    # env_cfg.terrain.mesh_type = 'trimesh'
-    env_cfg.terrain.mesh_type = 'plane'
+    env_cfg.terrain.mesh_type = 'plane' # 'plane' 'heightfield' 'trimesh'
     env_cfg.terrain.num_rows = 5
     env_cfg.terrain.num_cols = 5
-    env_cfg.terrain.curriculum = False     
+    env_cfg.terrain.curriculum = False
     env_cfg.terrain.max_init_terrain_level = 5
     env_cfg.noise.add_noise = True
-    env_cfg.domain_rand.push_robots = False 
+    env_cfg.domain_rand.push_robots = True
     env_cfg.domain_rand.joint_angle_noise = 0.
     env_cfg.noise.curriculum = False
     env_cfg.noise.noise_level = 0.5
@@ -70,8 +69,8 @@ def play(args):
     print("train_cfg.runner_class_name:", train_cfg.runner_class_name)
     
     args.run_name = 'h1_ppo'
-    args.load_run = 'Apr08_14-04-09_more_terminal_joints'
-    args.checkpoint = -1
+    args.load_run = 'Apr16_15-13-03_curriculum_test'
+    args.checkpoint = 5000
 
     # prepare environment
     env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
@@ -93,7 +92,7 @@ def play(args):
     logger = Logger(env.dt)
     robot_index = 0 # which robot is used for logging
     joint_index = 1 # which joint is used for logging
-    stop_state_log = 1200 # number of steps before plotting states
+    stop_state_log = 2400 # 1200 # number of steps before plotting states
     if RENDER:
         camera_properties = gymapi.CameraProperties()
         camera_properties.width = 1920
@@ -101,7 +100,7 @@ def play(args):
         h1 = env.gym.create_camera_sensor(env.envs[0], camera_properties)
         camera_offset = gymapi.Vec3(1, -1, 0.5)
         camera_rotation = gymapi.Quat.from_axis_angle(gymapi.Vec3(-0.3, 0.2, 1),
-                                                    np.deg2rad(135))
+                                                    np.deg2rad(135)) # TODO: change view here to see the whole body
         actor_handle = env.gym.get_actor_handle(env.envs[0], 0)
         body_handle = env.gym.get_actor_rigid_body_handle(env.envs[0], actor_handle, 0)
         env.gym.attach_camera_to_body(
@@ -124,9 +123,9 @@ def play(args):
         actions = policy(obs.detach()) # * 0.
         
         if FIX_COMMAND:
-            env.commands[:, 0] = 0.5    # 1.0
-            env.commands[:, 1] = 0.
-            env.commands[:, 2] = 0.
+            env.commands[:, 0] = 0.0
+            env.commands[:, 1] = 0.0
+            env.commands[:, 2] = 0.0
             env.commands[:, 3] = 0.
 
         obs, critic_obs, rews, dones, infos = env.step(actions.detach())
@@ -157,6 +156,9 @@ def play(args):
             }
             )
         # ====================== Log states ======================
+        # print("infos['episode']:",infos["episode"])
+        # if i == stop_state_log - 1:
+        #     print(env.reset_buf)
         if infos["episode"]:
             num_episodes = torch.sum(env.reset_buf).item()
             if num_episodes>0:
