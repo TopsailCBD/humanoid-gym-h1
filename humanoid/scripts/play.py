@@ -69,8 +69,8 @@ def play(args):
     print("train_cfg.runner_class_name:", train_cfg.runner_class_name)
     
     args.run_name = 'h1_ppo'
-    args.load_run = 'Apr16_15-13-03_curriculum_test'
-    args.checkpoint = 5000
+    args.load_run = 'Apr17_12-49-25_curriculum_l1_test'
+    args.checkpoint = 6000
 
     # prepare environment
     env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
@@ -123,7 +123,7 @@ def play(args):
         actions = policy(obs.detach()) # * 0.
         
         if FIX_COMMAND:
-            env.commands[:, 0] = 0.0
+            env.commands[:, 0] = 0.5
             env.commands[:, 1] = 0.0
             env.commands[:, 2] = 0.0
             env.commands[:, 3] = 0.

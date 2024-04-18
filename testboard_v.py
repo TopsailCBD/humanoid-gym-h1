@@ -61,17 +61,20 @@ plane_params = gymapi.PlaneParams()
 gym.add_ground(sim, plane_params)
 
 # Load franka asset
-asset_root = "../../assets"
-franka_asset_file = "urdf/franka_description/robots/franka_panda.urdf"
+# asset_root = "../../assets"
+# franka_asset_file = "urdf/franka_description/robots/franka_panda.urdf"
+
+asset_root = "resources/robots/h1"
+h1_asset_file = "urdf/h1.urdf"
 
 asset_options = gymapi.AssetOptions()
 asset_options.fix_base_link = True
 asset_options.flip_visual_attachments = True
 asset_options.armature = 0.01
 
-print("Loading asset '%s' from '%s'" % (franka_asset_file, asset_root))
+print("Loading asset '%s' from '%s'" % (h1_asset_file, asset_root))
 franka_asset = gym.load_asset(
-    sim, asset_root, franka_asset_file, asset_options)
+    sim, asset_root, h1_asset_file, asset_options)
 
 # Set up the env grid
 num_envs = 36
@@ -82,7 +85,7 @@ env_upper = gymapi.Vec3(spacing, spacing, spacing)
 # Some common handles for later use
 envs = []
 franka_handles = []
-franka_hand = "panda_hand"
+franka_hand = "left_elbow_link"
 
 # Attractor setup
 attractor_handles = []
