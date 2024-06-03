@@ -81,11 +81,11 @@ class H1Cfg(LeggedRobotCfg):
         measure_heights = False
         static_friction = 0.6
         dynamic_friction = 0.6
-        terrain_length = 4. # 8.
-        terrain_width = 4. # 8.
-        num_rows = 10 # 20  # number of terrain rows (levels)
+        terrain_length = 8.
+        terrain_width = 8.
+        num_rows = 20  # number of terrain rows (levels)
         num_cols = 20  # number of terrain cols (types)
-        max_init_terrain_level = 0 # 10  # starting curriculum state
+        max_init_terrain_level = 10  # starting curriculum state
         # plane; obstacles; uniform; slope_up; slope_down, stair_up, stair_down
         terrain_proportions = [0.2, 0.2, 0.4, 0.1, 0.1, 0, 0]
         restitution = 0.
